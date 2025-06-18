@@ -1,0 +1,39 @@
+# Strudel Pattern Examples
+# Use these patterns to test your setup
+
+# Basic drum patterns
+sound "bd sn hh sn"
+sound "bd cp bd cp"
+sound "bd ~ sn hh"
+
+# With BPM control
+sound "bd sn" # bpm 140
+sound "kick snare" # bpm 100
+
+# Named patterns (d1, d2, etc.)
+d1 $ sound "bd sn hh cp"
+d2 $ sound "bass:1 bass:2
+
+# Musical notes
+note "c4 e4 g4 c5"
+note "a3 c4 e4 a4"
+
+# More complex patterns
+sound "bd*2 sn cp sn"
+sound "[bd sn] hh [cp ~]"
+
+# With effects
+sound "bd sn" # gain 0.8
+sound "hh*4" # gain 0.6
+
+# Sample variations
+sound "bass:0 bass:1 bass:2 bass:3"
+sound "drum:0 drum:1 drum:2 drum:1"
+
+# Instructions:
+# 1. Start backend: ./start-backend.sh
+# 2. Open this file in Neovim
+# 3. Run :StrudelStart
+# 4. Place cursor on any pattern line
+# 5. Press <leader>e or :StrudelEvalLine
+

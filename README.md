@@ -1,17 +1,148 @@
 # Strudel-nvim
 
-A Neovim plugin for live coding with Strudel patterns.
+A Neovim plugin for live coding with Strudel patterns, featuring real-time WebSocket communication with a Go backend.
 
 ## What is this?
 
-This plugin lets you evaluate Strudel code directly from Neovim using a Go backend.
+Strudel-nvim lets you evaluate Strudel code directly from Neovim using a high-performance Go WebSocket backend. Write patterns in your editor and hear them instantly!
 
 ## Features
 
-- Start/stop Strudel backend with `:StrudelStart` and `:StrudelStop`
-- Evaluate current line with `:StrudelEvalLine` or `<leader>e`
-- Simple integration with Go backend for processing patterns
+🎵 **Live Coding**: Real-time pattern evaluation and audio generation  
+🔌 **WebSocket Communication**: Fast, reliable connection between Neovim and Go backend  
+🎛️ **Pattern Parsing**: Intelligent parsing of Strudel syntax with audio event generation  
+⚡ **Instant Feedback**: Immediate pattern evaluation with detailed logging  
+🎹 **Multi-Instrument Support**: Drums, synths, samples, and musical notes  
+🎯 **Easy Setup**: Simple installation and configuration  
 
-## Status
+## Quick Start
 
-Work in progress - plugin interface complete, Go backend integration coming soon.
+### Prerequisites
+
+- Neovim 0.8+
+- Go 1.21+
+- Lua dependencies will be installed automatically
+
+### Installation
+
+1. **Install the Neovim plugin** (using your preferred plugin manager):
+
+   ```lua
+   -- With lazy.nvim
+   {
+     'yourusername/strudel-nvim',
+     config = function()
+       require('strudel-nvim').setup({
+         -- websocket_url = "ws://localhost:8080/ws" -- Default
+       })
+     end
+   }
+   ```
+
+2. **Start the Go backend**:
+   ```bash
+   ./start-backend.sh
+   ```
+
+3. **Connect from Neovim**:
+   ```vim
+   :StrudelStart
+   ```
+
+### Usage
+
+1. Write Strudel patterns in any file
+2. Place cursor on a pattern line
+3. Press `<leader>e` or run `:StrudelEvalLine`
+4. Listen to your patterns!
+
+## Example Patterns
+
+Try these in Neovim:
+
+```javascript
+// Basic drum pattern
+sound "bd sn hh sn"
+
+// With BPM control
+sound "bd cp" # bpm 140
+
+// Named patterns
+d1 $ sound "bd sn hh cp"
+
+// Musical notes
+note "c4 e4 g4 c5"
+
+// Rests and variations
+sound "bd ~ sn hh"
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `:StrudelStart` | Connect to the Go backend |
+| `:StrudelStop` | Disconnect from backend |
+| `:StrudelEvalLine` | Evaluate current line |
+| `<leader>e` | Evaluate current line (normal mode) |
+
+## Architecture
+
+```
+┌─────────────┐    WebSocket    ┌──────────────┐    Audio
+│   Neovim    │◄──────────────► │ Go Backend   │───────►
+│  Plugin     │ ws://localhost  │   Server     │
+└─────────────┘     :8080/ws    └──────────────┘
+```
+
+- **Neovim Plugin** (`lua/`): WebSocket client, commands, and keymaps
+- **Go Backend** (`backend/`): WebSocket server, pattern parser, audio engine
+- **Communication**: Real-time JSON messages over WebSocket
+
+## Project Status
+
+✅ **Complete**:
+- Neovim plugin with WebSocket client
+- Go WebSocket server with pattern parsing
+- Real-time pattern evaluation
+- Audio event generation
+- Comprehensive error handling
+
+🚧 **Next Steps**:
+- Audio synthesis integration (SuperCollider, Web Audio)
+- MIDI output support
+- Advanced Strudel syntax
+- Pattern scheduling and timing
+
+## Development
+
+### Backend Development
+
+```bash
+cd backend
+go mod tidy
+go run .  # Start development server
+```
+
+### Testing
+
+```bash
+# Test backend health
+curl http://localhost:8080/health
+
+# Test from Neovim
+:StrudelStart
+:StrudelEvalLine
+```
+
+## Contributing
+
+Contributions welcome! Areas of interest:
+- Audio engine integration
+- Advanced pattern parsing
+- Performance optimizations
+- Documentation and examples
+
+## License
+
+MIT License - see LICENSE file for details.

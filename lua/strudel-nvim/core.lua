@@ -2,13 +2,15 @@
 
 local M = {}
 
-local tcp_client = nil -- This will hold our TCP client object
-local timer = nil -- Timer for reconnection attempts
+local tcp_client = nil
+local timer = nil
+local backend_job_id = nil
+
 local config = {
 	host = "127.0.0.1",
 	port = 8080,
-		reconnect_delay = 3000, -- 3 seconds
-		auto_reconnect = true
+	reconnect_delay = 3000, -- 3 seconds
+	auto_reconnect = true, -- New option: automatically try to reconnect if backend disconnects
 }
 
 -- Simple XOR function for masking (replaces bit.bxor)
@@ -33,10 +35,10 @@ local function create_websocket_frame(data)
 	local payload = data or ""
 	local payload_len = #payload
 	local frame = {}
-	
+
 	-- FIN=1, RSV=000, Opcode=0001 (text frame)
 	frame[1] = string.char(0x81)
-	
+
 	-- Mask=1, Payload length
 	if payload_len < 126 then
 		frame[2] = string.char(0x80 + payload_len)
@@ -49,21 +51,21 @@ local function create_websocket_frame(data)
 		vim.notify("Strudel: Payload too large", vim.log.levels.ERROR)
 		return nil
 	end
-	
+
 	-- Masking key (4 random bytes)
 	local mask = {}
 	for i = 1, 4 do
 		mask[i] = math.random(0, 255)
 		frame[#frame + 1] = string.char(mask[i])
 	end
-	
+
 	-- Masked payload
 	for i = 1, payload_len do
 		local byte = string.byte(payload, i)
 		local masked_byte = xor(byte, mask[((i - 1) % 4) + 1])
 		frame[#frame + 1] = string.char(masked_byte)
 	end
-	
+
 	return table.concat(frame)
 end
 
@@ -78,7 +80,7 @@ local function create_websocket_handshake()
 		"Sec-WebSocket-Key: " .. key,
 		"Sec-WebSocket-Version: 13",
 		"",
-		""
+		"",
 	}
 	return table.concat(handshake, "\r\n")
 end
@@ -148,7 +150,7 @@ local function connect_to_backend()
 						-- Handshake response, ignore
 						return
 					end
-					
+
 					-- Simple frame parsing for text messages
 					-- This is a simplified version - a full implementation would be more robust
 					local msg = data:gsub("[\r\n]", "")
@@ -173,24 +175,93 @@ end
 
 -- Schedule reconnection attempt
 local function schedule_reconnect()
+	if not config.auto_reconnect then -- Check new auto_reconnect config
+		vim.notify("Strudel: Auto-reconnect is disabled.", vim.log.levels.INFO)
+		return
+	end
+
 	if timer then
 		timer:close()
 	end
-	
+
 	timer = vim.loop.new_timer()
-	timer:start(config.reconnect_delay, 0, vim.schedule_wrap(function()
-		vim.notify("Strudel: Attempting to reconnect...", vim.log.levels.INFO)
-		connect_to_backend()
-		timer:close()
-		timer = nil
-	end))
+	timer:start(
+		config.reconnect_delay,
+		0,
+		vim.schedule_wrap(function()
+			vim.notify("Strudel: Attempting to reconnect...", vim.log.levels.INFO)
+			connect_to_backend()
+			timer:close()
+			timer = nil
+		end)
+	)
 end
 
 function M.start_backend()
-	-- TODO: Add logic to run your compiled Go application as a background process
-	-- For now, we assume you've started it manually in a separate terminal
-	vim.notify("Strudel: Assuming Go backend is running. Connecting...", vim.log.levels.INFO)
-	connect_to_backend()
+	if backend_job_id then
+		vim.notify("Strudel: Backend is already running.", vim.log.levels.INFO)
+	else
+		vim.notify("Strudel: Starting Go backend process...", vim.log.levels.INFO)
+		-- Determine the path to the backend directory relative to the plugin file
+		-- Use debug.getinfo to get the current file path more reliably
+		local info = debug.getinfo(1, 'S')
+		local script_path = info.source:match('^@(.*)$')
+		local plugin_dir = vim.fn.fnamemodify(script_path, ':h:h:h')
+		local backend_script_path = plugin_dir .. "/backend/start.sh"
+		local backend_dir = plugin_dir .. "/backend"
+		
+		-- Backend paths determined successfully
+
+		backend_job_id = vim.fn.jobstart({ backend_script_path }, {
+			cwd = backend_dir, -- Set the current working directory for the job
+			detach = true, -- Run the process in the background, detached from Neovim
+			on_exit = function(job_id, data, event)
+				vim.schedule(function()
+					if backend_job_id == job_id then -- Ensure it's the job we started
+						vim.notify("Strudel: Backend process exited. Code: " .. data, vim.log.levels.INFO)
+						backend_job_id = nil
+						-- Optionally, attempt to reconnect or notify if it was an unexpected exit
+						if config.auto_reconnect then
+							schedule_reconnect()
+						end
+					end
+				end)
+			end,
+			on_stdout = vim.schedule_wrap(function(_, data, _)
+				for _, line in ipairs(data) do
+					vim.notify("Strudel Backend Output: " .. line, vim.log.levels.DEBUG)
+				end
+			end),
+			on_stderr = vim.schedule_wrap(function(_, data, _)
+				for _, line in ipairs(data) do
+					vim.notify("Strudel Backend Error: " .. line, vim.log.levels.ERROR)
+				end
+			end),
+		})
+
+		if backend_job_id == 0 or backend_job_id == -1 then
+			vim.notify(
+				"Strudel: Failed to start backend process. Check if '"
+					.. backend_script_path
+					.. "' is executable and Go is installed.",
+				vim.log.levels.ERROR
+			)
+			backend_job_id = nil
+		else
+			vim.notify(
+				"Strudel: Backend process started (Job ID: " .. backend_job_id .. "). Attempting to connect...",
+				vim.log.levels.INFO
+			)
+			-- Give a short moment for the backend to start before attempting connection
+			vim.loop.new_timer():start(
+				1000,
+				0,
+				vim.schedule_wrap(function()
+					connect_to_backend()
+				end)
+			)
+		end
+	end
 end
 
 function M.stop_backend()
@@ -201,12 +272,20 @@ function M.stop_backend()
 	else
 		vim.notify("Strudel: Not connected.", vim.log.levels.WARN)
 	end
-	
+
 	if timer then
 		timer:close()
 		timer = nil
 	end
-	-- TODO: Add logic to kill the Go process if needed
+
+	if backend_job_id then
+		vim.notify("Strudel: Stopping backend process (Job ID: " .. backend_job_id .. ")...", vim.log.levels.INFO)
+		vim.fn.jobstop(backend_job_id) -- Terminate the background process
+		backend_job_id = nil
+		vim.notify("Strudel: Backend process stopped.", vim.log.levels.INFO)
+	else
+		vim.notify("Strudel: No backend process running to stop.", vim.log.levels.WARN)
+	end
 end
 
 function M.eval_line()
@@ -250,7 +329,15 @@ function M.setup(opts)
 		if opts.reconnect_delay then
 			config.reconnect_delay = opts.reconnect_delay
 		end
+		if opts.auto_reconnect ~= nil then -- New configuration option
+			config.auto_reconnect = opts.auto_reconnect
+		end
 	end
+end
+
+-- Expose the connect function for manual reconnection
+function M.connect_to_backend()
+	connect_to_backend()
 end
 
 return M
