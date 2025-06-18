@@ -1,4 +1,4 @@
-# Strudel-nvim
+# Strudel-nvim : IN PRODUCTION
 
 A Neovim plugin for live coding with Strudel patterns, featuring real-time WebSocket communication with a Go backend.
 
