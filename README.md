@@ -33,7 +33,14 @@ Strudel-nvim lets you evaluate Strudel code directly from Neovim using a high-pe
      'yourusername/strudel-nvim',
      config = function()
        require('strudel-nvim').setup({
-         -- websocket_url = "ws://localhost:8080/ws" -- Default
+         -- websocket_url = "ws://localhost:8080/ws", -- Default
+         -- keymaps = {                              -- Customize keymaps
+         --   start = "<leader>ss",
+         --   stop = "<leader>sq", 
+         --   eval_line = "<leader>se",
+         --   connect = "<leader>sc",
+         -- },
+         -- disable_keymaps = false,                 -- Set to true to disable all keymaps
        })
      end
    }
@@ -52,8 +59,8 @@ Strudel-nvim lets you evaluate Strudel code directly from Neovim using a high-pe
 ### Usage
 
 1. Write Strudel patterns in any file
-2. Place cursor on a pattern line
-3. Press `<leader>e` or run `:StrudelEvalLine`
+2. Place cursor on a pattern line  
+3. Press `<leader>se` or run `:StrudelEval`
 4. Listen to your patterns!
 
 ## Example Patterns
@@ -77,14 +84,18 @@ note "c4 e4 g4 c5"
 sound "bd ~ sn hh"
 ```
 
-## Commands
+## Commands & Keymaps
 
-| Command | Description |
-|---------|-------------|
-| `:StrudelStart` | Connect to the Go backend |
-| `:StrudelStop` | Disconnect from backend |
-| `:StrudelEvalLine` | Evaluate current line |
-| `<leader>e` | Evaluate current line (normal mode) |
+| Command | Default Keymap | Description |
+|---------|----------------|-------------|
+| `:StrudelStart` | `<leader>ss` | Start and connect to the Go backend |
+| `:StrudelStop` | `<leader>sq` | Stop and disconnect from backend |
+| `:StrudelEval` | `<leader>se` | Evaluate current line |
+| `:StrudelConnect` | `<leader>sc` | Connect to existing backend |
+
+### Keymap Customization
+
+You can customize or disable keymaps during setup. See [KEYMAP_CONFIG.md](KEYMAP_CONFIG.md) for detailed configuration options.
 
 ## Architecture
 
